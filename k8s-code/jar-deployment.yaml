@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: openjdk-deployment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: openjdk
+  template:
+    metadata:
+      labels:
+        app: openjdk
+    spec:
+      containers:
+        - name: openjdk
+          image: nazmulislam76/spring-bjit:latest
+          ports:
+            - containerPort: 8080
+      restartPolicy: Always  # Add this line to set the restart policy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: openjdk-service
+spec:
+  selector:
+    app: openjdk
+  ports:
+    - protocol: TCP
+      port: 8080
+      targetPort: 8080
+      nodePort: 30090
+  type: NodePort
