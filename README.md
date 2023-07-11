@@ -14,4 +14,4 @@ It allows user to manage Members, Categories, Books and Issueing Books.
 ### Login
 for login you may use username as 'admin' and password as 'admin'.
 
-Test
+Test@
