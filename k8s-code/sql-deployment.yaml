@@ -1,7 +1,14 @@
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: naz-mysql-config
+data:
+  mysql-database: sparklmsdb
+---
+apiVersion: v1
 kind: PersistentVolume
 metadata:
-  name: mysql-pv
+  name: naz-mysql-pv
 spec:
   capacity:
     storage: 1Gi
@@ -15,7 +22,7 @@ spec:
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: mysql-pvc
+  name: naz-mysql-pvc
 spec:
   accessModes:
     - ReadWriteOnce
@@ -27,56 +34,66 @@ spec:
 apiVersion: apps/v1
 kind: StatefulSet
 metadata:
-  name: mysql-deployment
+  name: naz-mysql-deployment
 spec:
-  serviceName: mysql-service
+  serviceName: naz-mysql-service
   replicas: 1
   selector:
     matchLabels:
-      app: mysql
+      app: naz-mysql
   template:
     metadata:
       labels:
-        app: mysql
+        app: naz-mysql
     spec:
       containers:
-        - name: mysql
+        - name: naz-mysql
           image: mysql:latest
           env:
             - name: MYSQL_ROOT_PASSWORD
               valueFrom:
                 secretKeyRef:
-                  name: mysql-secrets
+                  name: naz-mysql-secrets
                   key: root-password
             - name: MYSQL_DATABASE
-              value: sparklmsdb
+              valueFrom:
+                configMapKeyRef:
+                  name: naz-mysql-config
+                  key: mysql-database
           ports:
             - containerPort: 3306
           imagePullPolicy: Always
           volumeMounts:
-            - name: mysql-persistent-storage
+            - name: naz-mysql-persistent-storage
               mountPath: /var/lib/mysql
       volumes:
-        - name: mysql-persistent-storage
+        - name: naz-mysql-persistent-storage
           persistentVolumeClaim:
-            claimName: mysql-pvc
+            claimName: naz-mysql-pvc
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: mysql-service
+  name: naz-mysql-service
 spec:
   selector:
-    app: mysql
+    app: naz-mysql
   ports:
     - protocol: TCP
       port: 3306
       targetPort: 3306
 ---
 apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: naz-mysql-config
+data:
+  mysql-database: sparklmsdb
+---
+apiVersion: v1
 kind: Secret
 metadata:
-  name: mysql-secrets
+  name: naz-mysql-secrets
 type: Opaque
 data:
   root-password: YmppdDEyMzQ=  # Base64-encoded password "bjit1234"
