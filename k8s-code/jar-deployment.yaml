@@ -1,19 +1,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: openjdk-deployment
+  name: naz-openjdk-deployment
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: openjdk
+      app: naz-openjdk
   template:
     metadata:
       labels:
-        app: openjdk
+        app: naz-openjdk
     spec:
       containers:
-        - name: openjdk
+        - name: naz-openjdk
           image: nazmulislam76/spring-bjit:latest
           ports:
             - containerPort: 8080
@@ -22,10 +22,10 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: openjdk-service
+  name: naz-openjdk-service
 spec:
   selector:
-    app: openjdk
+    app: naz-openjdk
   ports:
     - protocol: TCP
       port: 8080
