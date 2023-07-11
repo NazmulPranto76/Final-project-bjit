@@ -82,3 +82,11 @@ metadata:
   name: naz-mysql-config
 data:
   mysql-database: sparklmsdb
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: naz-mysql-secrets
+type: Opaque
+data:
+  root-password: YmppdDEyMzQ=
