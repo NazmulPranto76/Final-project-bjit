@@ -108,7 +108,7 @@ pipeline {
                     if (releaseOption == 'New Release') {
                         withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s-credential', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
                             def sqlDeploymentExists = sh(
-                                script: 'kubectl get deployment -l app=mysql -o name',
+                                script: 'kubectl get pod -l app=naz-mysql -o name',
                                 returnStatus: true
                             )
                             if (sqlDeploymentExists == 0) {
@@ -120,7 +120,7 @@ pipeline {
                             }
 
                             def jarDeploymentExists = sh(
-                                script: 'kubectl get deployment -l app=openjdk -o name',
+                                script: 'kubectl get pod -l app=naz-openjdk -o name',
                                 returnStatus: true
                             )
                             if (jarDeploymentExists == 0) {
