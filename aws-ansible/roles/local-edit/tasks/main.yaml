@@ -1,0 +1,17 @@
+- name: Read application.properties file
+  slurp:
+    src: /var/lib/jenkins/workspace/AWS-Deploy/src/main/resources/application.properties
+  register: file_content
+
+- name: Modify application.properties content
+  lineinfile:
+    path: /var/lib/jenkins/workspace/AWS-Deploy/src/main/resources/application.properties
+    line: "{{ item.key }} = {{ item.value }}"
+  with_items:
+    - { key: 'spring.datasource.url', value: 'jdbc:mysql://natan-db.cjldgoxvvwoc.us-west-2.rds.amazonaws.com:3306/sparklmsdb?useSSL=true' }
+    - { key: 'spring.datasource.username', value: 'nazmul' }
+    - { key: 'spring.datasource.password', value: 'bjit1234' }
+  when: file_content['content'] | b64decode != "spring.datasource.url = jdbc:mysql://natan-db.cjldgoxvvwoc.us-west-2.rds.amazonaws.com:3306/sparklmsdb?useSSL=true\nspring.datasource.username = nazmul\nspring.datasource.password = bjit1234\n"
+
+- name: Verify modified application.properties content
+  shell: cat /var/lib/jenkins/workspace/AWS-Deploy/src/main/resources/application.properties

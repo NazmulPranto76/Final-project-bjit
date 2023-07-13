@@ -1,0 +1,17 @@
+---
+- name: Downloading Dependencies
+  hosts: aws
+  become: true
+  roles:
+    - aws_setup
+
+- name: Modify application.properties
+  hosts: localhost
+  connection: local
+  gather_facts: false
+
+- name: Starting the app
+  hosts: aws
+  become: true
+  roles:
+    - start-app

@@ -1,0 +1,10 @@
+- name: Copy JAR file to remote host
+  copy:
+    src: /var/lib/jenkins/workspace/AWS-Deploy/target/*.jar
+    dest: /home/ec2-user/
+    mode: 0644
+    
+- name: Restart BJIT App Service
+  systemd:
+    name: bjit-app.service
+    state: restarted
