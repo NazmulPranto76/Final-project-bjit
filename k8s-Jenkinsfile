@@ -1,0 +1,168 @@
+import groovy.json.JsonSlurper
+pipeline {
+    agent any
+    tools {
+        maven "MAVEN"
+    }
+    triggers {
+        // Poll repository every 2 minutes for changes
+        pollSCM('H/2 * * * *')
+    }
+    stages {
+        stage('Git Clone') {
+            steps {
+                script {
+                    git branch: 'main', credentialsId: 'spring-Bjit-Github-SSHCredentials', url: 'git@github.com:nazmul-islam76/spring-bjit.git'
+                }
+            }
+        }
+        
+        stage('Add Credentials PlayBook Run') {
+            steps {
+                ansiblePlaybook become: true, credentialsId: 'Ansible-AWS-Credential', disableHostKeyChecking: true, installation: 'ansible', playbook: 'aws-ansible/k8s-db.yaml', vaultCredentialsId: 'ansible-vaultpassword'
+            }
+        }
+        stage('Building Jar File from GIT') {
+            steps {
+                script {
+                    def releaseOption = params.DOCKER_TAG
+                    if (releaseOption == 'Build Next Version') {
+                        sh 'mvn clean install'
+                    } else {
+                        echo "Skipping Building Jar File stage for Use Specific Version"
+                    }
+                }
+            }
+        }
+
+        stage('Docker Jar Image Build') {
+            steps {
+                script {
+                    def dockerfilePathend = "docker-build/Dockerfile"
+                    def tag = ""
+                    def releaseOption = params.DOCKER_TAG
+
+                    if (releaseOption == 'Build Next Version') {
+                        // Fetch the tags for the Docker image from Docker Hub API
+                        def tagsJson = sh(
+                            script: 'curl -s "https://hub.docker.com/v2/repositories/nazmulislam76/spring-bjit/tags/?page_size=100" | jq -r ".results[].name"',
+                            returnStdout: true
+                        ).trim()
+                        def highestNumberedTag = 0
+                        for (def t in tagsJson.split('\n')) {
+                            if (t.isNumber() && t.toInteger() > highestNumberedTag) {
+                                highestNumberedTag = t.toInteger()
+                            }
+                        }
+                        tag = (highestNumberedTag + 1).toString()
+                    }
+                    if (tag) {
+                        def springEnd = docker.build("nazmulislam76/spring-bjit:${tag}", "-f ${dockerfilePathend} .")
+                        withDockerRegistry(credentialsId: 'DockerHubCredential', url: '') {
+                            springEnd.push(tag)
+                            springEnd.push("latest")
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Delete Previous Images from Local Docker') {
+            steps {
+                script {
+                    def releaseOption = params.DOCKER_TAG
+                    if (releaseOption == 'Build Next Version') {
+                        def imageName = 'nazmulislam76/spring-bjit'
+
+                        // Get the IDs of previous images with the same name and tag 'latest'
+                        def imageIds = sh(
+                            script: "docker images --filter=reference='${imageName}:latest' --format '{{.ID}}'",
+                            returnStdout: true
+                        ).trim()
+
+                        // Delete previous images
+                        if (imageIds) {
+                            sh "docker rmi -f ${imageIds}"
+                        } else {
+                            echo "No previous images found for ${imageName}:latest"
+                        }
+                    } else {
+                        echo "Skipping Deletion of previous version"
+                    }
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes Pods') {
+            steps {
+                script {
+                    def releaseOption = params.DOCKER_TAG
+                        withKubeConfig(caCertificate: '', clusterName: '', contextName: '', credentialsId: 'k8s-credential', namespace: '', restrictKubeConfigAccess: false, serverUrl: '') {
+                            def sqlDeploymentExists = sh(
+                                script: 'kubectl get pod -l app=naz-mysql -o name',
+                                returnStatus: true
+                            )
+                            if (sqlDeploymentExists == 0) {
+                                try {
+                                    sh 'kubectl delete -f k8s-code/sql-deployment.yaml'
+                                } catch (Exception e) {
+                                    echo "Error deleting SQL deployment: ${e.getMessage()}"
+                                }
+                            }
+
+                            def jarDeploymentExists = sh(
+                                script: 'kubectl get pod -l app=naz-openjdk -o name',
+                                returnStatus: true
+                            )
+                            if (jarDeploymentExists == 0) {
+                                try {
+                                    sh 'kubectl delete -f k8s-code/jar-deployment.yaml'
+                                } catch (Exception e) {
+                                    echo "Error deleting JAR deployment: ${e.getMessage()}"
+                                }
+                            }
+
+                            if (releaseOption != 'Build Next Version' && releaseOption != 'latest') {
+                                def deploymentYaml = readFile('k8s-code/jar-deployment.yaml')
+                                deploymentYaml = deploymentYaml.replace('nazmulislam76/spring-bjit:latest', "nazmulislam76/spring-bjit:${params.DOCKER_TAG}")
+                                writeFile(file: 'k8s-code/jar-deployment.yaml', text: deploymentYaml)
+                            }
+
+                            sh 'kubectl apply -f k8s-code/sql-deployment.yaml'
+                            sh 'kubectl apply -f k8s-code/jar-deployment.yaml'
+                        }
+                }
+            }
+        }
+
+        stage('Fetch Docker Tags') {
+            steps {
+                script {
+                    def dockerImage = 'nazmulislam76/spring-bjit' // Specify your Docker image name here
+                    def apiUrl = "https://hub.docker.com/v2/repositories/${dockerImage}/tags?page_size=100"
+
+                    // Send an HTTP GET request to the Docker Hub API
+                    def response = sh(
+                        returnStdout: true,
+                        script: "curl -s ${apiUrl}"
+                    )
+                    def json = new JsonSlurper().parseText(response)
+
+                    def dockerTags = json.results.name
+                    dockerTags.add(0, 'Build Next Version') // Add 'Build Next Version' option at the beginning of the list
+
+                    // Set the choices for the DOCKER_TAG parameter
+                    properties([
+                        parameters([
+                            choice(
+                                choices: dockerTags.join('\n'),
+                                description: 'Select a Docker image tag or choose "Build Next Version"',
+                                name: 'DOCKER_TAG'
+                            )
+                        ])
+                    ])
+                }
+            }
+        }
+    }
+}
