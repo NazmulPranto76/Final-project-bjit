@@ -1,0 +1,6 @@
+---
+- name: Starting the app
+  hosts: aws
+  become: true
+  roles:
+    - start-app

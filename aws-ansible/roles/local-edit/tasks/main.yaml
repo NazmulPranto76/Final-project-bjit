@@ -1,0 +1,19 @@
+- name: Read application.properties file
+  slurp:
+    src: /var/lib/jenkins/workspace/AWS-Deploy/src/main/resources/application.properties
+  register: file_content
+
+- name: Load secrets from db-secrets.yaml
+  include_vars:
+    file: db-secrets.yaml
+    name: db_secrets
+
+- name: Modify application.properties content
+  lineinfile:
+    path: /var/lib/jenkins/workspace/AWS-Deploy/src/main/resources/application.properties
+    line: "{{ item.key }} = {{ item.value }}"
+    insertbefore: BOF
+  loop: "{{ db_secrets | dict2items }}"
+
+- name: Verify modified application.properties content
+  shell: cat /var/lib/jenkins/workspace/AWS-Deploy/src/main/resources/application.properties

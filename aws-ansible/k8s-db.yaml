@@ -1,0 +1,7 @@
+- name: Modify application.properties in k8s
+  hosts: localhost
+  become: true
+  connection: local
+  gather_facts: false
+  roles:
+    - k8s-db
