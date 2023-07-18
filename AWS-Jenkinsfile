@@ -1,0 +1,36 @@
+pipeline {
+    agent any
+    tools {
+        maven "MAVEN"
+    }
+    triggers {
+        // Poll repository every 2 minutes for changes
+        pollSCM('H/2 * * * *')
+    }
+    stages {
+        stage('Git Clone') {
+            steps {
+                script {
+                    git branch: 'main', credentialsId: 'spring-Bjit-Github-SSHCredentials', url: 'git@github.com:nazmul-islam76/spring-bjit.git'
+                }
+            }
+        }
+        stage('SetUp PlayBook Run') {
+            steps {
+                ansiblePlaybook become: true, credentialsId: 'Ansible-AWS-Credential', disableHostKeyChecking: true, installation: 'ansible', playbook: 'aws-ansible/aws-ansible.yaml', vaultCredentialsId: 'ansible-vaultpassword'
+            }
+        }
+        stage('Building Jar File from GIT') {
+            steps {
+                script {
+                    sh 'mvn clean install'
+                }
+            }
+        }
+        stage('Jar PlayBook Run') {
+            steps {
+                ansiblePlaybook become: true, credentialsId: 'Ansible-AWS-Credential', disableHostKeyChecking: true, installation: 'ansible', playbook: 'aws-ansible/aws-jar.yaml', vaultCredentialsId: 'ansible-vaultpassword'
+            }
+        }
+    }
+}
