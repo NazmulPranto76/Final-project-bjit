@@ -1,6 +1,9 @@
 import groovy.json.JsonSlurper
 pipeline {
     agent any
+    options {
+      buildDiscarder logRotator(daysToKeepStr: '1', numToKeepStr: '7')
+    }
     tools {
         maven "MAVEN"
     }
