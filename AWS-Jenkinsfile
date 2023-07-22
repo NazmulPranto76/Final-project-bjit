@@ -1,14 +1,11 @@
 pipeline {
     agent any
-    options {
-      buildDiscarder logRotator(daysToKeepStr: '1', numToKeepStr: '7')
-    }
+
     tools {
         maven "MAVEN"
-    }
-    triggers {
-        // Poll repository every 2 minutes for changes
-        pollSCM('H/2 * * * *')
+    } 
+    options {
+        buildDiscarder logRotator(daysToKeepStr: '1', numToKeepStr: '7')
     }
     stages {
         stage('Git Clone') {
@@ -30,10 +27,57 @@ pipeline {
                 }
             }
         }
+        
+        stage('SonarQube Analysis') {
+            steps {
+                withCredentials([string(credentialsId: 'sonarqube', variable: 'SONARQUBE_TOKEN')]) {
+                    withSonarQubeEnv('sonarqube') {
+                        script {
+                            sh "mvn sonar:sonar -Dsonar.projectKey=jenkins -Dsonar.host.url=http://192.168.20.134:9000 -Dsonar.login=${SONARQUBE_TOKEN}"
+                        }
+                    }
+                }
+            }
+        }       
+        
         stage('Jar PlayBook Run') {
             steps {
                 ansiblePlaybook become: true, credentialsId: 'Ansible-AWS-Credential', disableHostKeyChecking: true, installation: 'ansible', playbook: 'aws-ansible/aws-jar.yaml', vaultCredentialsId: 'ansible-vaultpassword'
             }
+        }
+    }
+    post {
+        success {
+            // Send Slack notification on success
+            slackSend channel: 'devops-jenkins',
+                      color: 'good',
+                      message: "Build Succeeded: ${env.JOB_NAME} ${env.BUILD_NUMBER}",
+                      teamDomain: 'Bjitacademy',
+                      tokenCredentialId: 'slack'
+        }
+        failure {
+            // Send Slack notification on failure
+            slackSend channel: 'devops-jenkins',
+                      color: 'danger',
+                      message: "Build Failed: ${env.JOB_NAME} ${env.BUILD_NUMBER}",
+                      teamDomain: 'Bjitacademy',
+                      tokenCredentialId: 'slack'
+        }
+        unstable {
+            // Send Slack notification on pipeline abort or unstable state
+            slackSend channel: 'devops-jenkins',
+                      color: 'warning',
+                      message: "Build Aborted or Unstable: ${env.JOB_NAME} ${env.BUILD_NUMBER}",
+                      teamDomain: 'Bjitacademy',
+                      tokenCredentialId: 'slack'
+        }
+        aborted {
+            // Send Slack notification on pipeline abort
+            slackSend channel: 'devops-jenkins',
+                      color: '#262525',
+                      message: "Pipeline Aborted: ${env.JOB_NAME} ${env.BUILD_NUMBER}",
+                      teamDomain: 'Bjitacademy',
+                      tokenCredentialId: 'slack'
         }
     }
 }
