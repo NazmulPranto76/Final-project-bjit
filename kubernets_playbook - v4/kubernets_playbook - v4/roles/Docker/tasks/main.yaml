@@ -1,0 +1,52 @@
+- name: Update system packages
+  become: true
+  dnf:
+    name: '*'
+    state: latest
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Add Docker repository
+  become: true
+  shell: dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Update packages after adding Docker repository
+  become: true
+  dnf:
+    name: '*'
+    state: latest
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Install Docker packages
+  become: true
+  dnf:
+    name: "{{ item }}"
+    state: latest
+  with_items:
+    - docker-ce
+    - docker-ce-cli
+    - containerd.io
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Start Docker service
+  become: true
+  service:
+    name: docker
+    state: started
+    enabled: yes
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Set permissions for /var/run/docker.sock
+  become: true
+  file:
+    path: /var/run/docker.sock
+    mode: '0777'
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Add ansible user to the docker group
+  become: true
+  user:
+    name: jenkins
+    groups: docker
+    append: yes
+  when: ansible_facts['os_family'] == 'RedHat'

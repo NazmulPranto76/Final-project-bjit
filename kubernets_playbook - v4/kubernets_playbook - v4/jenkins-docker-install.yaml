@@ -1,0 +1,14 @@
+---
+- name: Docker
+  hosts: localhost
+  connection: local
+  become: true
+  roles:
+    - Docker
+
+- name: Jenkins + openjdk install
+  hosts: localhost
+  connection: local
+  become: true
+  roles:
+    - jenkins+others

@@ -1,0 +1,92 @@
+- name: Install wget package
+  become: true
+  dnf:
+    name: wget
+    state: latest
+  when: ansible_facts['os_family'] == 'RedHat'
+    
+- name: Add Jenkins repository
+  command: wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Import Jenkins repository key
+  command: rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Upgrade packages
+  yum:
+    name: "*"
+    state: latest
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Install Java 11 OpenJDK
+  yum:
+    name: java-11-openjdk
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Set up JAVA_HOME in /etc/profile.d/java.sh
+  become: true
+  blockinfile:
+    path: /etc/profile.d/java.sh
+    block: |
+      JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+      PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin:/root/bin:/bin
+      export JAVA_HOME
+      export PATH
+    create: yes
+    marker: "# {mark} ANSIBLE MANAGED BLOCK"
+
+- name: Source java.sh
+  become: true
+  shell: source /etc/profile.d/java.sh
+  args:
+    executable: /bin/bash
+    
+- name: Install Jenkins
+  yum:
+    name: jenkins
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Enable and start Jenkins service
+  service:
+    name: jenkins
+    state: started
+    enabled: true
+  when: ansible_facts['os_family'] == 'RedHat'
+  
+- name: Install Git
+  become: true
+  yum:
+    name: git
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: Get Kubernetes stable version
+  uri:
+    url: https://storage.googleapis.com/kubernetes-release/release/stable.txt
+    return_content: yes
+  register: kubernetes_stable_version
+
+- name: Download kubectl
+  get_url:
+    url: "https://storage.googleapis.com/kubernetes-release/release/{{ kubernetes_stable_version.content }}/bin/linux/amd64/kubectl"
+    dest: /tmp/kubectl
+    mode: '0755'
+
+- name: Move kubectl binary to /usr/local/bin/
+  command: mv /tmp/kubectl /usr/local/bin/kubectl
+  args:
+    creates: /usr/local/bin/kubectl
+    
+- name: Install jq package
+  yum:
+    name: jq
+    state: present
+  become: true
