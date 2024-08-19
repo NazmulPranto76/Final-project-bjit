@@ -17,7 +17,7 @@ spec:
           image: nazmulislam76/spring-bjit:latest
           ports:
             - containerPort: 8080
-      restartPolicy: Always  # Add this line to set the restart policy
+      restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
